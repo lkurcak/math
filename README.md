@@ -1,6 +1,6 @@
 ![Crates.io Version](https://img.shields.io/crates/v/lk_math)
 
-# lk_math
+# math
 Collection of reusable mathematical tools.
 
 ## Disclaimer
