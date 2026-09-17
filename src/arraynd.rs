@@ -22,7 +22,6 @@ pub struct ArrayNd<const N: usize, T> {
     pub data: Vec<T>,
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     pub dims: [usize; N],
-    // #[serde(with = "serde_arrays")]
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     pub dim_strides: [usize; N],
 }
@@ -368,7 +367,6 @@ impl<const N: usize, T> ArrayNd<N, T> {
         p0: Vector<N, i32>,
         p1: Vector<N, i32>,
     ) -> impl Iterator<Item = &'_ T> {
-        // self.line_iter(p0, p1).filter_map(|p| self.get(p))
         self.line_iter::<B>(p0, p1).map(|p| self.get(p).unwrap())
     }
 }
@@ -379,16 +377,6 @@ impl<const N: usize, T: Copy> ArrayNd<N, T> {
             self.set(p, v);
         }
     }
-    // pub fn draw_line_from_points<const B: bool>(
-    //     &mut self,
-    //     p0: Vector<N, i32>,
-    //     p1: Vector<N, i32>,
-    //     v: T,
-    // ) {
-    //     for p in self.line_iter::<B>(p0, p1) {
-    //         self.set(p, v);
-    //     }
-    // }
 }
 
 // NOTE(lubo): Choose which slice (index) to paint in each dimension, or pass None to paint all tiles in that dimension.
@@ -514,8 +502,7 @@ impl FromStr for CharArray2d {
     type Err = CharArrayParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let cursor = std::io::Cursor::new(s);
-        Self::from_read(cursor)
+        Self::from_str_with_options(s, CharArrayParseOptions::default())
     }
 }
 
@@ -534,37 +521,67 @@ impl Display for CharArrayParseError {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct CharArrayParseOptions {
+    /// Pad non-empty lines with spaces to match the longest line.
+    ///
+    /// When false, inconsistent line widths produce a parse error.
+    pub pad_short_lines: bool,
+}
+
 impl CharArray2d {
+    pub fn from_str_with_options(
+        s: &str,
+        options: CharArrayParseOptions,
+    ) -> Result<Self, CharArrayParseError> {
+        Self::from_read_with_options(std::io::Cursor::new(s), options)
+    }
+
     pub fn from_buffer<R: std::io::Read>(
         reader: BufReader<R>,
     ) -> Result<Self, CharArrayParseError> {
-        let mut array2d_width_line_number = 0;
-        let mut array2d_width = 0;
+        Self::from_buffer_with_options(reader, CharArrayParseOptions::default())
+    }
 
-        let mut data = vec![];
-        let mut height = 0;
+    pub fn from_buffer_with_options<R: std::io::Read>(
+        reader: BufReader<R>,
+        options: CharArrayParseOptions,
+    ) -> Result<Self, CharArrayParseError> {
+        let mut lines = Vec::new();
 
         for (line_number, line) in reader.lines().enumerate() {
-            let line = match line {
-                Ok(l) => l,
-                Err(e) => return Err(CharArrayParseError::Io(e)),
-            };
-            let line_width = line.len();
-            if array2d_width == 0 {
-                array2d_width = line_width;
-                array2d_width_line_number = line_number;
-            } else if array2d_width != line_width && line_width != 0 {
-                return Err(CharArrayParseError::InconsistentLineWidth(
-                    array2d_width_line_number,
-                    array2d_width,
-                    line_number,
-                    line_width,
-                ));
+            let line = line.map_err(CharArrayParseError::Io)?;
+            if !line.is_empty() {
+                lines.push((line_number, line.chars().collect::<Vec<_>>()));
             }
-            if line_width > 0 {
-                height += 1;
-                data.extend(line.chars());
+        }
+
+        let array2d_width = lines.iter().map(|(_, line)| line.len()).max().unwrap_or(0);
+
+        if !options.pad_short_lines {
+            if let Some((first_line_number, first_line)) = lines.first() {
+                let first_line_width = first_line.len();
+                if let Some((line_number, line)) = lines
+                    .iter()
+                    .find(|(_, line)| line.len() != first_line_width)
+                {
+                    return Err(CharArrayParseError::InconsistentLineWidth(
+                        *first_line_number,
+                        first_line_width,
+                        *line_number,
+                        line.len(),
+                    ));
+                }
             }
+        }
+
+        let height = lines.len();
+        let mut data = Vec::with_capacity(array2d_width * height);
+        for (_, mut line) in lines {
+            if options.pad_short_lines {
+                line.resize(array2d_width, ' ');
+            }
+            data.extend(line);
         }
 
         Ok(Self {
@@ -576,6 +593,13 @@ impl CharArray2d {
 
     pub fn from_read<R: std::io::Read>(reader: R) -> Result<Self, CharArrayParseError> {
         Self::from_buffer(BufReader::new(reader))
+    }
+
+    pub fn from_read_with_options<R: std::io::Read>(
+        reader: R,
+        options: CharArrayParseOptions,
+    ) -> Result<Self, CharArrayParseError> {
+        Self::from_buffer_with_options(BufReader::new(reader), options)
     }
 }
 
@@ -649,5 +673,21 @@ line 3+
         } else {
             panic!();
         }
+    }
+
+    #[test]
+    fn parse_chararray2d_with_short_lines_padded() {
+        let input = "abc\nde\nfghi\n";
+        let map = CharArray2d::from_str_with_options(
+            input,
+            CharArrayParseOptions {
+                pad_short_lines: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(4, map.width());
+        assert_eq!(3, map.height());
+        assert_eq!("abc \nde  \nfghi\n", map.to_string());
     }
 }
