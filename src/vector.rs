@@ -114,11 +114,11 @@ impl<'de, const C: usize, T: Deserialize<'de>> Deserialize<'de> for Vector<C, T>
 impl<const C: usize, T: Display> Display for Vector<C, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Vector(")?;
-        for x in 0..C {
+        for (x, value) in self.values.iter().enumerate() {
             if x == C - 1 {
-                write!(f, "{}", self.values[x])?;
+                write!(f, "{value}")?;
             } else {
-                write!(f, "{}, ", self.values[x])?;
+                write!(f, "{value}, ")?;
             }
         }
         write!(f, ")")
@@ -149,8 +149,8 @@ where
     }
     pub fn aggregate<F: Fn(T, T) -> T>(&self, f: F) -> T {
         let mut acc = self.values[0];
-        for x in 1..C {
-            acc = f(acc, self.values[x]);
+        for &value in &self.values[1..] {
+            acc = f(acc, value);
         }
         acc
     }
@@ -275,8 +275,8 @@ where
 }
 impl<const C: usize, T: MulAssign + Copy> MulAssign<T> for Vector<C, T> {
     fn mul_assign(&mut self, rhs: T) {
-        for x in 0..C {
-            self.values[x] *= rhs;
+        for value in &mut self.values {
+            *value *= rhs;
         }
     }
 }
@@ -348,8 +348,8 @@ where
     fn manhattan_distance(&self, other: &Self) -> T {
         let delta = *other - *self;
         let mut result = delta.values[0].abs().unwrap();
-        for i in 1..C {
-            result = result + delta.values[i].abs().unwrap();
+        for value in &delta.values[1..] {
+            result = result + value.abs().unwrap();
         }
         result
     }
