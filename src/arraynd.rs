@@ -151,18 +151,10 @@ impl<const C: usize, T: Copy> ArrayNd<C, T> {
 
 impl<const N: usize, T> LinearIndex<usize> for ArrayNd<N, T> {
     fn index_unchecked(&self, i: usize) -> Option<usize> {
-        if i < self.data.len() {
-            Some(i)
-        } else {
-            None
-        }
+        if i < self.data.len() { Some(i) } else { None }
     }
     fn unindex(&self, i: usize) -> Option<usize> {
-        if i < self.data.len() {
-            Some(i)
-        } else {
-            None
-        }
+        if i < self.data.len() { Some(i) } else { None }
     }
     unsafe fn cardinality(&self) -> Option<usize> {
         Some(self.data.len())
@@ -515,7 +507,10 @@ pub enum CharArrayParseError {
 impl Display for CharArrayParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CharArrayParseError::InconsistentLineWidth(l1, w1, l2, w2) => write!(f, "Inconsistent line width. On line {l1} the width is {w1}, while on line {l2} the width is {w2}."),
+            CharArrayParseError::InconsistentLineWidth(l1, w1, l2, w2) => write!(
+                f,
+                "Inconsistent line width. On line {l1} the width is {w1}, while on line {l2} the width is {w2}."
+            ),
             CharArrayParseError::Io(io) => write!(f, "IO error: {io}"),
         }
     }
@@ -558,20 +553,20 @@ impl CharArray2d {
 
         let array2d_width = lines.iter().map(|(_, line)| line.len()).max().unwrap_or(0);
 
-        if !options.pad_short_lines {
-            if let Some((first_line_number, first_line)) = lines.first() {
-                let first_line_width = first_line.len();
-                if let Some((line_number, line)) = lines
-                    .iter()
-                    .find(|(_, line)| line.len() != first_line_width)
-                {
-                    return Err(CharArrayParseError::InconsistentLineWidth(
-                        *first_line_number,
-                        first_line_width,
-                        *line_number,
-                        line.len(),
-                    ));
-                }
+        if !options.pad_short_lines
+            && let Some((first_line_number, first_line)) = lines.first()
+        {
+            let first_line_width = first_line.len();
+            if let Some((line_number, line)) = lines
+                .iter()
+                .find(|(_, line)| line.len() != first_line_width)
+            {
+                return Err(CharArrayParseError::InconsistentLineWidth(
+                    *first_line_number,
+                    first_line_width,
+                    *line_number,
+                    line.len(),
+                ));
             }
         }
 

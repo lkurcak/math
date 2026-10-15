@@ -150,7 +150,7 @@ impl<T: Copy + Add<Output = T> + Sub<Output = T> + Sum> IntervalSet<T> {
     /// These bounds are defined in the [`UniversalInterval`] trait which is required for
     /// this function.
     ///
-    /// See [`negation_within_bounds`] for a version that does not require universal bounds.
+    /// See [`Self::negation_within_bounds`] for a version that does not require universal bounds.
     pub fn negation(&self) -> Self
     where
         T: UniversalInterval,

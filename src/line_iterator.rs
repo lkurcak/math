@@ -30,12 +30,12 @@ impl<const B: bool, const C: usize> Iterator for LineIterator<B, C> {
             }
 
             let mut dir = self.end - self.at;
-            for i in 0..C {
-                if dir.values[i] > 0 {
-                    dir.values[i] = 1;
+            for value in &mut dir.values {
+                if *value > 0 {
+                    *value = 1;
                 }
-                if dir.values[i] < 0 {
-                    dir.values[i] = -1;
+                if *value < 0 {
+                    *value = -1;
                 }
             }
 
